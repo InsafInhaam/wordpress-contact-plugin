@@ -1,7 +1,7 @@
 <?php
 
-if(!defined('ABSPATH')){
-    die('You cannot be here ');
+if (!defined('ABSPATH')) {
+    die('You cannot be here');
 }
 
 use Carbon_Fields\Container;
@@ -17,17 +17,21 @@ function load_carbon_fields()
 
 function create_options_page()
 {
-    Container::make('theme_options', 'Contact Form')
+    Container::make('theme_options', __('Contact Form'))
+
+        ->set_page_menu_position(30)
+
         ->set_icon('dashicons-media-text')
+
         ->add_fields(
             array(
-                Field::make('checkbox', 'contact_plugin_active', __('Active')),
-                Field::make('text', 'contact_plugin_recipients', __('Recipients Emails'))->set_attribute('placeholder', 'your@email.com')->set_help_text('The email that the form is submitted to'),
 
-                Field::make('textarea', 'contact_plugin_message', __('Confirmation Message'))->set_attribute('placeholder', 'Your Message')->set_help_text('Type the message you want to submitter to recive'),
+                Field::make('checkbox', 'contact_plugin_active', __('Active')),
+
+                Field::make('text', 'contact_plugin_recipients', __('Recipient Email'))->set_attribute('placeholder', 'eg. your@email.com')->set_help_text('The email that the form is submitted to'),
+
+                Field::make('textarea', 'contact_plugin_message', __('Confirmation Message'))->set_attribute('placeholder', 'Enter confirmation message')->set_help_text('Type the message you want the submitted to receive'),
 
             )
         );
 }
-
-
