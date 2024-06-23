@@ -1,52 +1,65 @@
-<div id="form_success" style="background-color:green; color:#fff;"></div>
-<div id="form_error" style="background-color:red; color:#fff;"></div>
+<?php if (get_plugin_options('contact_plugin_active')): ?>
 
-<form id="enquiry_form">
-      <?php wp_nonce_field('wp_rest'); ?>
+      <div id="form_success" style="background-color:green; color:#fff;"></div>
+      <div id="form_error" style="background-color:red; color:#fff;"></div>
 
-      <label>Name</label><br />
-      <input type="text" name="name">
-      <br /><br />
+      <form id="enquiry_form" data-url="<?php echo esc_url(get_rest_url(null, 'v1/contact-form/submit')); ?>">
+            <?php wp_nonce_field('wp_rest'); ?>
 
-      <label>Phone</label><br />
-      <input type="text" name="phone">
-      <br /><br />
+            <label>Name</label><br />
+            <input type="text" name="name"><br /><br />
 
-      <label>Email</label><br />
-      <input type="text" name="email">
-      <br /><br />
+            <label>Phone</label><br />
+            <input type="text" name="phone"><br /><br />
 
-      <label>Message</label><br />
-      <textarea name="message"></textarea>
-      <br /><br />
+            <label>Email</label><br />
+            <input type="text" name="email"><br /><br />
 
-      <button type="submit">Submit form</button>
-</form>
+            <label>Message</label><br />
+            <textarea name="message"></textarea><br /><br />
 
-<script>
-      jQuery(document).ready(function ($) {
-            $("#enquiry_form").submit(function (event) {
-                  event.preventDefault();
+            <button type="submit">Submit form</button>
+      </form>
 
-                  $("#form_error").hide();
+      <script>
+            jQuery(document).ready(function ($) {
 
-                  var form = $(this);
 
-                  $.ajax({
-                        type: "POST",
-                        url: "<?php echo get_rest_url(null, 'v1/contact-form/submit'); ?>",
-                        data: form.serialize(),
-                        success: function() {
-                              form.hide();
+                  $("#enquiry_form").submit(function (event) {
 
-                              $('#form_success').html('Your message was sent successfully').fadeIn();
-                        },
-                        error:function(){
-                              $('#form_error').html('There was an error submitting your form').fadeIn();
-                        }
-                  })
+                        event.preventDefault();
+
+                        $("#form_error").hide();
+
+                        var form = $(this);
+
+                        $.ajax({
+
+
+                              type: "POST",
+                              url: "<?php echo get_rest_url(null, 'v1/contact-form/submit'); ?>",
+                              data: form.serialize(),
+                              success: function (res) {
+
+                                    form.hide();
+
+                                    $("#form_success").html(res).fadeIn();
+
+
+                              },
+                              error: function () {
+
+                                    $("#form_error").html("There was an error submitting").fadeIn();
+                              }
+
+
+                        })
+                  });
             });
-      });
-</script>
+      </script>
 
+<?php else: ?>
 
+      <p>This form is not active</p>
+
+<?php endif; ?>

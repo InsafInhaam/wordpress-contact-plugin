@@ -14,7 +14,7 @@ add_action('add_meta_boxes', 'create_meta_boxes');
 
 add_filter('manage_submission_posts_columns', 'custom_submission_columns');
 
-add_action('manage_submission_posts_custom_columns', 'fill_submission_columns', 10);
+add_action('manage_submission_posts_custom_column', 'fill_submission_columns', 10, 2);
 
 add_action('admin_init', 'setup_search');
 
@@ -23,6 +23,9 @@ add_action('wp_enqueue_scripts', 'enqueue_custom_scripts');
 function enqueue_custom_scripts()
 {
     wp_enqueue_style('contact-form-plugin', MY_PLUGIN_URL . 'assets/css/contact-plugin.css');
+
+    // Enqueue jQuery (WordPress includes jQuery by default)
+    wp_enqueue_script('jquery');
 }
 
 function setup_search()
@@ -80,16 +83,20 @@ function fill_submission_columns($column, $post_id)
 
 function custom_submission_columns($columns)
 {
+      // Edit the columns for the submission table
 
-    $columns = array(
-        'cb' => $columns['cb'],
-        'name' => __('Name', 'contact-plugin'),
-        'email' => __('Email', 'contact-plugin'),
-        'phone' => __('Phone', 'contact-plugin'),
-        'message' => __('Message', 'contact-plugin'),
-    );
+      $columns = array(
 
-    return $columns;
+            'cb' => $columns['cb'],
+            'name' => __('Name', 'contact-plugin'),
+            'email' => __('Email', 'contact-plugin'),
+            'phone' => __('Phone', 'contact-plugin'),
+            'message' => __('Message', 'contact-plugin'),
+            'date' => 'Date',
+
+      );
+
+      return $columns;
 }
 
 function create_meta_boxes()
@@ -126,6 +133,8 @@ function create_submissions_page()
     $args = array(
         'public' => true,
         'has_archive' => true,
+        'menu_position' => 30,
+        'publicly_queryable' => false,
         'labels' => [
             'name' => 'Submissions',
             'singular_name' => 'Submission',
@@ -151,12 +160,15 @@ function show_contact_form()
 
 function create_rest_endpoint()
 {
+    // Create endpoint for front end to connect to WordPress securely to post form data
     register_rest_route(
         'v1/contact-form',
         'submit',
         array(
-            'method' => 'POST',
+
+            'methods' => 'POST',
             'callback' => 'handle_enquiry'
+
         )
     );
 }
@@ -174,9 +186,9 @@ function handle_enquiry($data)
     $field_phone = sanitize_text_field($params['phone']);
     $field_message = sanitize_text_field($params['message']);
 
-    // check if nonce is valid if not, respond back with error
-    if (!wp_verify_nonce($params['_wponce'], 'wp_rest')) {
-        return new WP_REST_Response('Message no sent', 422);
+    // Check if nonce is valid
+    if (!isset($params['_wpnonce']) || !wp_verify_nonce($params['_wpnonce'], 'wp_rest')) {
+        return new WP_REST_Response('Message not sent', 422);
     }
 
     // Remove unneeded data from parameters
