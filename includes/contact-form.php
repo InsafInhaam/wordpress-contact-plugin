@@ -1,5 +1,9 @@
 <?php
 
+if (!defined('ABSPATH')) {
+    die('You cannot be here');
+}
+
 add_shortcode('contact', 'show_contact_form');
 
 add_action('rest_api_init', 'create_rest_endpoint');
@@ -13,6 +17,13 @@ add_filter('manage_submission_posts_columns', 'custom_submission_columns');
 add_action('manage_submission_posts_custom_columns', 'fill_submission_columns', 10);
 
 add_action('admin_init', 'setup_search');
+
+add_action('wp_enqueue_scripts', 'enqueue_custom_scripts');
+
+function enqueue_custom_scripts()
+{
+    wp_enqueue_style('contact-form-plugin', MY_PLUGIN_URL . 'assets/css/contact-plugin.css');
+}
 
 function setup_search()
 {
@@ -50,19 +61,19 @@ function fill_submission_columns($column, $post_id)
 {
     switch ($column) {
         case 'name':
-            echo get_post_meta($post_id, 'name', true);
+            echo esc_html(get_post_meta($post_id, 'name', true));
             break;
 
         case 'email':
-            echo get_post_meta($post_id, 'email', true);
+            echo esc_html(get_post_meta($post_id, 'email', true));
             break;
 
         case 'phone':
-            echo get_post_meta($post_id, 'phone', true);
+            echo esc_html(get_post_meta($post_id, 'phone', true));
             break;
 
         case 'message':
-            echo get_post_meta($post_id, 'message', true);
+            echo esc_html(get_post_meta($post_id, 'message', true));
             break;
     }
 }
@@ -116,15 +127,15 @@ function create_submissions_page()
         'public' => true,
         'has_archive' => true,
         'labels' => [
-                'name' => 'Submissions',
-                'singular_name' => 'Submission',
-                'edit_item' => 'View Submission'
-            ],
+            'name' => 'Submissions',
+            'singular_name' => 'Submission',
+            'edit_item' => 'View Submission'
+        ],
         'supports' => false,
         'capability_type' => 'post',
         'capabilities' => array(
-                'create_posts' => false,
-            ),
+            'create_posts' => false,
+        ),
         'map_meta_cap' => true
     );
 
@@ -152,15 +163,23 @@ function create_rest_endpoint()
 
 function handle_enquiry($data)
 {
+    // return new WP_REST_Response('Message not sent', 422);
 
-    return new WP_REST_Response('Message not sent', 422);
-
+    // Gte all parameters from form
     $params = $data->get_params();
 
+    // set fields from the form
+    $field_name = sanitize_text_field($params['name']);
+    $field_email = sanitize_email($params['email']);
+    $field_phone = sanitize_text_field($params['phone']);
+    $field_message = sanitize_text_field($params['message']);
+
+    // check if nonce is valid if not, respond back with error
     if (!wp_verify_nonce($params['_wponce'], 'wp_rest')) {
         return new WP_REST_Response('Message no sent', 422);
     }
 
+    // Remove unneeded data from parameters
     unset($params['_wponce']);
     unset($params['_wp_http_referer']);
 
@@ -170,16 +189,27 @@ function handle_enquiry($data)
     $admin_email = get_bloginfo('admin_email');
     $admin_name = get_bloginfo('name');
 
-    $headers[] = "From: {$admin_email} <{$admin_name}>";
-    $headers[] = "Reply-To: {{$params['name']}} <{{$params['email']}}>";
 
-    $subject = 'New enquiry from ' . $params['name'];
+    // set recipient email
+    $recipient__email = get_plugin_options('correct_plugin_recipients');
+
+    if (!$recipient__email) {
+        $recipient__email = strtolower(trim($recipient__email));
+    } else {
+        $recipient__email = $admin_email;
+    }
+
+    $headers[] = "From: {$admin_email} <{$admin_name}>";
+    $headers[] = "Reply-To: {{$field_name}} <{{$field_email}}>";
+    $headers[] = "Content-Type: text/html";
+
+    $subject = 'New enquiry from ' . $field_name;
 
     $message = '';
-    $message .= "Message has been sent from {$params['name']}";
+    $message .= "<h1>Message has been sent from {$field_name}</h1>";
 
     $postarr = [
-        'post_title' => $params['name'],
+        'post_title' => $field_name,
         'post_type' => 'submission',
         'post_status' => 'publish',
     ];
@@ -187,12 +217,31 @@ function handle_enquiry($data)
     $post_id = wp_insert_post($postarr);
 
     foreach ($params as $label => $value) {
-        $message .= '<strong>' . ucfirst($label) . '</strong>:' . $value;
 
-        add_post_meta($post_id, $label, $value);
+        switch ($label) {
+            case 'message':
+                $value = sanitize_textarea_field($value);
+                break;
+            case 'email':
+                $value = sanitize_email($value);
+                break;
+            default:
+                $value = sanitize_text_field($value);
+        }
+
+        add_post_meta($post_id, sanitize_text_field($label), $value);
+
+        $message .= '<strong>' . sanitize_text_field(ucfirst($label)) . '</strong>:' . $value . '<br/>';
     }
 
-    wp_mail($admin_email, $subject, $message, $headers);
+    wp_mail($recipient__email, $subject, $message, $headers);
+
+    $confirmation_message = "The meesage was sent successfully!!";
+
+    if (get_plugin_options('contact_plugin_message')) {
+        $confirmation_message = get_plugin_options('contact_plugin_message');
+        $confirmation_message = str_replace('{name}', $field_name, $confirmation_message);
+    }
 
     return new WP_REST_Response('The  message was sent successfully', 200);
 }
